@@ -39,7 +39,7 @@ GC一般在方法区和堆区进行，因为两个栈和程序计数器都是随
 
 整堆收集(full gc)
 
-### 3.2 标记-清除算法：
+### 3.2 标记-清除算法
 两种实现：
 1. 标记可回收，清除标记对象
 2. 标记不可回收，清除非标记对象
@@ -50,6 +50,7 @@ GC一般在方法区和堆区进行，因为两个栈和程序计数器都是随
 ### 3.3 标记-复制算法
 将区域划分为两块，每次只使用其中一块，标记不可回收的，复制到另一块内存区域，完全回收原内存区域。
 缺点：
+
 1. 不可回收的对象过多会导致复制开销大
 2. 浪费内存，每次只能用一半
 
@@ -109,3 +110,35 @@ apple 回收：
 
 
 
+## 5 实战
+一些Jvm的参数指令：
+``-Xms20M``：设置堆大小20M，
+``-Xmx20M``：设置堆扩展最大到20M
+``-Xmn10M``：设置新生代区域大小10M
+
+### 5.1 对象优先在Eden分配
+```java
+private static final int _1MB = 1024 * 1024;
+/**
+* VM参数：-verbose:gc -Xms20M -Xmx20M -Xmn10M -XX:+PrintGCDetails -XX:SurvivorRatio=8
+* 新生代 ：Eden:survivor1：survivor2 = 8：1：1
+*/
+    public static void testAllocation() {
+    byte[] allocation1, allocation2, allocation3, allocation4;
+    allocation1 = new byte[2 * _1MB];
+    allocation2 = new byte[2 * _1MB];
+    allocation3 = new byte[2 * _1MB];
+    allocation4 = new byte[4 * _1MB]; // 出现一次Minor GC
+}
+```
+### 5.2 大对象直接进入老年代
+利用参数``-XX：PretenureSizeThreshold``设置大于某个阈值的大对象直接分配在老年代，可以省略复制的开销
+
+### 5.3 长期存活对象进入老年代
+每一次熬过GC的年轻代对象都会增加年龄，年龄到达一定程度会到达到年代，可以通过参数``-XX：M axTenuringThreshold``设置
+
+### 5.4 动态对象年龄判定
+如果在Survivor空间中相同年龄所有对象大小的总和大于Survivor空间的一半，年龄大于或等于该年龄的对象就可以直接进入老年代
+
+### 5.5 空间分配担保
+如果年轻代无法全部晋升 ->Minor GC会查看参数``XX：HandlePromotionFailure``判断是否允许担保失败 ->允许则继续检查老年代最大可用的连续空间是否大于历次晋升到老年代对象的平均大小->大于就进行，小于或者不允许冒险就进行FULL GC再进行。
